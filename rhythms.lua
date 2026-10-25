@@ -401,7 +401,7 @@ local function midi_device_names()
 end
 
 local function add_midi_params()
-  params:add_group("rhythms_midi", "rytm & midi", 7)
+  params:add_group("rhythms_midi", "rytm & midi", 6)
   params:add_option("midi_device", "midi out", midi_device_names(), 1)
   params:set_action("midi_device", function(i)
     out.all_off()
@@ -414,9 +414,7 @@ local function add_midi_params()
   params:set_action("rytm_base_ch", function() out.all_off(); out.forget_tune() end)
   params:add_number("rytm_auto_ch", "auto channel", 1, 16, 14)
   params:set_action("rytm_auto_ch", function() out.all_off() end)
-  params:add_number("rytm_pad_note", "auto: BD note", 0, 115, 36)
-  params:set_action("rytm_pad_note", function() out.all_off() end)
-  params:add_option("rytm_tune_via", "tune via", {"note", "synth tune cc", "off"}, 1)
+  params:add_option("rytm_tune_via", "tune via", {"synth tune cc", "off"}, 1)
   params:add_option("send_transport", "send start/stop", {"off", "on"}, 1)
 end
 

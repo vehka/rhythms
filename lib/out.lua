@@ -1,7 +1,10 @@
 -- the hits go out here: to the analog rytm over midi, and to nb players.
 --
--- a rytm hit is a note on the track's channel (track channels) or a note
--- on the auto channel, one note per track. each note is ended after a step,
+-- a rytm hit is the track's trigger note, 0 (BD) to 11 (CB), on the
+-- track's channel (track channels) or on the auto channel. the rytm only
+-- triggers tracks with these notes (manual, appendix c.8): notes 12-59 play
+-- the active track chromatically, and higher notes do nothing. the tune
+-- goes as the synth tune cc. each note is ended after a step,
 -- on the port and channel it was sent on, so a change of device or channel
 -- never leaves a note hanging.
 
@@ -17,8 +20,7 @@ local P = {
   mode = "rytm_mode",         -- 1 track channels, 2 auto channel
   base = "rytm_base_ch",      -- channel of track 1 (BD) with track channels
   auto = "rytm_auto_ch",
-  pad = "rytm_pad_note",      -- note of BD on the auto channel
-  tune = "rytm_tune_via",     -- 1 note, 2 synth tune cc, 3 off
+  tune = "rytm_tune_via",     -- 1 synth tune cc, 2 off
 }
 
 local TUNE_CC = 17          -- the rytm's synth tune, 64 is no change
@@ -78,15 +80,13 @@ function out.forget_tune() tune_sent = {} end
 -- a hit on a rytm track (1-12), `semis` from its own pitch
 function out.rytm(track, semis, vel, off)
   if not out.port then return end
-  local tune_via = params:get(P.tune)
   local ch_track = track_channel(track)
-  if tune_via == 2 and ch_track then send_tune(ch_track, semis) end
+  if params:get(P.tune) == 1 and ch_track then send_tune(ch_track, semis) end
+  local note = track - 1
   if params:get(P.mode) == 1 then
-    if not ch_track then return end
-    local note = 60 + (tune_via == 1 and semis or 0)
-    note_on(ch_track, util.clamp(note, 0, 127), vel, off)
+    if ch_track then note_on(ch_track, note, vel, off) end
   else
-    note_on(params:get(P.auto), params:get(P.pad) + track - 1, vel, off)
+    note_on(params:get(P.auto), note, vel, off)
   end
 end
 

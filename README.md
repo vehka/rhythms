@@ -13,7 +13,7 @@ each line has a **bit** (or mute), a **tune**, a **gate probability**, and plays
 
 two lines that hit the same track in one step make one hit, the louder of the two.
 
-**tune** moves the hits up or down by up to 3 steps of *tune step* semitones (2 by default). on the rytm it goes out as the note's pitch on the track's channel, or as the synth tune cc (cc 17), see *tune via*. kit lines on nb play the general midi drum note of each track and aren't tuned.
+**tune** moves the hits up or down by up to 3 steps of *tune step* semitones (2 by default). on the rytm it goes out as the synth tune cc (cc 17) on the track's channel, see *tune via*. kit lines on nb play the general midi drum note of each track and aren't tuned.
 
 ## accents
 
@@ -49,12 +49,14 @@ up to 16, as in less concepts: (16,6) or key 2 takes one, (9,7) to (16,8) recall
 
 in *rytm & midi*:
 
-- **rytm notes: track channels** sends each track on its own channel, BD on *BD track channel* and the others after it (1-12 by default), and tunes by note: 60 is the sound's own pitch.
-- **rytm notes: auto channel** sends every track on the auto channel, BD on *auto: BD note* and the others on the notes after it. the tune then can only go as the synth tune cc on the track channels.
+each track is triggered by its own note, BD on note 0 (C0) to CB on note 11 (B0), as the rytm expects (manual, appendix c.8). the rytm's tracks need their default channels 1-12 for these notes to trigger them.
+
+- **rytm notes: track channels** sends each track's note on its own channel, BD on *BD track channel* and the others after it (1-12 by default).
+- **rytm notes: auto channel** sends every track's note on the auto channel.
 - **tune via synth tune cc** sends cc 17 on the track's channel when its tune changes, 64 being the sound's own tune. a track that is never tuned is never sent the cc.
 - **send start/stop** starts and stops the rytm with rhythms. to run two norns together, set both to the same clock source (link, or midi clock from one to the other).
 
-to check on the rytm: the note of BD on the auto channel (36 here), that notes on a track channel play its sound transposed from 60, and the cc 17 scale. the cc numbers come from a third party instrument definition, not the manual.
+to check on the rytm: the cc 17 scale (how far one step moves the tune), and the other cc numbers, which come from a third party instrument definition, not the manual.
 
 ## nb
 
