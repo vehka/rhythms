@@ -1,6 +1,6 @@
 -- rhythms:
 -- cellular automata drums
--- v0.1.0
+-- v0.2.0
 -- a companion to less concepts:
 -- four lines of drum hits from
 -- the same seeds and rules, for
@@ -39,11 +39,16 @@
 -- (9,7) to (16,8): snapshots
 -- (1,8): play/stop
 -- (2,8) to (4,8): time +/-
+-- (7,8) (8,8): morph 1 and 2:
+--   press one, then a snapshot,
+--   to move there over the
+--   morph's length
 
 local automaton = include('lib/automaton')
 local kit = include('lib/kit')
 local out = include('lib/out')
 local snapshots = include('lib/snapshots')
+local morph = include('lib/morph')
 
 -- optional: https://github.com/sixolet/nb lets the lines play nb voices.
 -- the installed library, or else the copy another script or mod bundles
@@ -96,6 +101,9 @@ local key2_held = false
 local snap_held = false
 local recalling = false
 local hold_clocks = {}
+local morph_armed = nil -- the morph armed by its grid key, 1 or 2
+local morph_blink = 0   -- the phases of the blinks of the snapshot a morph
+local arm_blink = 0     -- moves to, and of the armed morph key
 
 local FOCI = {"seed/rule", "bits", "tune", "gate", "time", "feel", "snapshots", "cycle"}
 
@@ -215,7 +223,9 @@ local function loom_tick()
   end
 end
 
+-- a snapshot recalled at once stops a morph
 local function recall(n)
+  morph.cancel()
   recalling = true
   local ok = snapshots.recall(n)
   recalling = false
@@ -226,6 +236,11 @@ end
 local function cycle_check()
   local mode = params:get("cycle_mode")
   if mode == 1 or snapshots.count() == 0 or snap_held then return end
+  if morph.active() then
+    -- a morph holds the cycle, which goes on a cycle length after it ends
+    next_cycle = beat_pos + params:get("cycle_beats")
+    return
+  end
   if beat_pos + 1e-6 < next_cycle then return end
   next_cycle = next_cycle + params:get("cycle_beats")
   local count, n = snapshots.count(), snapshots.selected
@@ -237,6 +252,7 @@ end
 
 local function tick()
   out.release_due(step)
+  morph.tick(step_beats())
   cycle_check()
   if is_loom() then loom_tick() else step_mode_tick() end
   send_rytm_hits()
@@ -311,6 +327,7 @@ local function add_snapshot()
 end
 
 local function remove_snapshot(n)
+  morph.cancel()
   snapshots.remove(n)
   if snapshots.count() == 0 then params:set("cycle_mode", 1) end
   dirty()
@@ -424,6 +441,7 @@ local function snapshot_ids()
   for v = 1, VOICES do
     table.insert(ids, vp(v, "bit"))
     table.insert(ids, vp(v, "tune"))
+    table.insert(ids, vp(v, "gate"))
     for s = 1, SLOTS do table.insert(ids, vp(v, "slot" .. s .. "_on")) end
   end
   return ids
@@ -441,6 +459,51 @@ local function wrap_for_writing(ids)
       end
     end
   end
+end
+
+-- morph ---------------------------------------------------------------------
+
+-- how each value moves on the way to a snapshot; the rest comes at the end
+local function morph_kinds()
+  local kinds = {rule = "flips"}
+  for v = 1, VOICES do
+    kinds[vp(v, "bit")] = "step"
+    kinds[vp(v, "tune")] = "step"
+    kinds[vp(v, "gate")] = "step"
+    for s = 1, SLOTS do kinds[vp(v, "slot" .. s .. "_on")] = "toggle" end
+  end
+  return kinds
+end
+
+-- move to snapshot n with morph i, from where the lines are. the morph keeps
+-- its own copy, as a cycle that writes may change the snapshot
+local function morph_to(n, i)
+  local to = snapshots.list[n]
+  if not to then return end
+  local from, copy = {}, {}
+  for id, value in pairs(to) do
+    copy[id] = value
+    from[id] = params:get(id)
+  end
+  morph.start(n, from, copy, morph.length(i), morph_kinds())
+end
+
+-- the values on the way aren't edits, so a cycle that writes keeps them out
+-- of its snapshot
+morph.apply = function(id, value)
+  recalling = true
+  params:set(id, value)
+  recalling = false
+end
+
+morph.finish = function(n, snapshot)
+  recalling = true
+  for id, value in pairs(snapshot) do
+    if params.lookup[id] then params:set(id, value) end
+  end
+  recalling = false
+  snapshots.selected = math.min(n, snapshots.count())
+  plant()
 end
 
 -- grid --------------------------------------------------------------------
@@ -505,7 +568,14 @@ local function grid_redraw()
     local level = 2
     if n <= snapshots.count() then level = 6 end
     if n == snapshots.selected then level = 15 end
+    if n == morph.slot() then level = morph_blink < 0.5 and 15 or 2 end
     g:led(x, y, level)
+  end
+
+  for i = 1, 2 do
+    local level = snapshots.count() > 0 and 4 or 1
+    if morph_armed == i then level = arm_blink < 0.5 and 15 or 0 end
+    g:led(6 + i, 8, level)
   end
 
   g:led(1, 8, playing and 15 or (waiting and 8 or 4))
@@ -572,6 +642,7 @@ local function grid_key(x, y, z)
       if z == 1 then
         on_hold("clear" .. x, 0.75, function()
           if x == 14 then
+            morph.cancel()
             snapshots.clear()
             params:set("cycle_mode", 1)
           else
@@ -596,7 +667,14 @@ local function grid_key(x, y, z)
   elseif x >= 9 then
     local n = (y == 7 and 0 or 8) + x - 8
     if z == 1 then
-      if n <= snapshots.count() then recall(n) end
+      if n <= snapshots.count() then
+        if morph_armed then
+          morph_to(n, morph_armed)
+          morph_armed = nil
+        else
+          recall(n)
+        end
+      end
       snap_held = true
     else
       snap_held = false
@@ -606,6 +684,11 @@ local function grid_key(x, y, z)
     elseif x == 2 then params:delta("time", -1)
     elseif x == 3 then params:set("time", 3)
     elseif x == 4 then params:delta("time", 1)
+    elseif x == 7 or x == 8 then
+      -- arm a morph, or disarm it
+      local i = x - 6
+      morph_armed = morph_armed ~= i and i or nil
+      arm_blink = 0
     end
   end
   dirty()
@@ -692,15 +775,21 @@ function redraw()
     local level = FOCI[focus] == "snapshots" and 2 or 1
     if n <= snapshots.count() then level = 4 end
     if n == snapshots.selected then level = FOCI[focus] == "snapshots" and 15 or 8 end
+    if n == morph.slot() then level = morph_blink < 0.5 and 15 or 1 end
     screen.level(level)
     screen.rect(((n - 1) % 8) * 5, 54 + (n > 8 and 5 or 0), 4, 4)
     screen.fill()
   end
   screen.level(level_for("cycle"))
   screen.move(48, 62)
-  local write = params:get("cycle_write") == 1 and "*" or ""
-  screen.text("cycle " .. CYCLE_SIGNS[params:get("cycle_mode")] .. write
-    .. " " .. params:get("cycle_beats") .. " beats")
+  if morph.active() then
+    screen.text("morph > " .. morph.slot() .. "  "
+      .. util.round(100 * morph.progress()) .. "%")
+  else
+    local write = params:get("cycle_write") == 1 and "*" or ""
+    screen.text("cycle " .. CYCLE_SIGNS[params:get("cycle_mode")] .. write
+      .. " " .. params:get("cycle_beats") .. " beats")
+  end
   screen.update()
 end
 
@@ -762,6 +851,7 @@ function init()
   if nb then nb:init() end
   add_pattern_params()
   for v = 1, VOICES do add_voice_params(v) end
+  morph.add_params()
   add_midi_params()
   if nb then nb:add_player_params() end
 
@@ -787,6 +877,15 @@ function init()
   ui_metro = metro.init(function()
     blink = blink + 1
     if params:get("cycle_write") == 1 then grid_dirty = true end
+    if morph.active() then
+      -- faster as it nears the end: once a second at the start, 8 at the end
+      morph_blink = (morph_blink + (1 + 7 * morph.progress()) / 30) % 1
+      dirty()
+    end
+    if morph_armed then
+      arm_blink = (arm_blink + 3 / 30) % 1
+      grid_dirty = true
+    end
     if screen_dirty then redraw(); screen_dirty = false end
     if grid_dirty then grid_redraw(); grid_dirty = false end
   end, 1 / 30, -1)

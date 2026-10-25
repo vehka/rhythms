@@ -41,9 +41,17 @@ the three velocities are set in the group.
 
 ## snapshots
 
-up to 16, as in less concepts: (16,6) or key 2 takes one, (9,7) to (16,8) recall one, and the automaton starts over from its seed. a snapshot holds the seed, rule, automaton, loom settings, time, loop and, for each line, the bit, tune and the slots left out of the kit. the snapshots are saved with the pset, in a file next to it.
+up to 16, as in less concepts: (16,6) or key 2 takes one, (9,7) to (16,8) recall one, and the automaton starts over from its seed. a snapshot holds the seed, rule, automaton, loom settings, time, loop and, for each line, the bit, tune, gate probability and the slots left out of the kit. the snapshots are saved with the pset, in a file next to it.
 
 **cycle**: (9,6), (10,6) and (11,6) go through the snapshots down, at random or up, every *cycle length* beats. press the lit one again to stop. hold one to make the cycle write: edits then go into the snapshot that plays (it blinks), like the destructive cycle of less concepts. holding a snapshot key holds the cycle.
+
+## morph
+
+a snapshot can be reached slowly, instead of at once, as in less concepts: press one of the morph keys at (7,8) and (8,8), and it blinks, armed. then press a snapshot to start the morph. pressing the armed key again disarms it, and the other key arms its morph instead.
+
+on the way, the bits, tunes and gate probabilities of the lines step from where they are to the snapshot's, spread evenly over the morph. the rule changes a bit at a time, in a random order, so the pattern drifts from one rule to the other. each kit slot the snapshot leaves out or brings back changes at a random point of the morph, so a kit changes a sound at a time. at the end the seed starts over from the snapshot's, and its automaton, loom settings, time and loop come in, as when the snapshot is pressed on its own.
+
+the two morphs have their own length, from 1/4 bar to 32 bars (*morph* group), 1 bar and 4 bars by default. the snapshot blinks while the morph moves to it, faster as it nears the end, and the screen shows how far it has got. a morph counts the beats played, so it stands still while rhythms is stopped. pressing a snapshot on its own stops a morph. a cycle waits while a morph plays, and goes on a cycle length after it ends; a cycle that writes doesn't write the values on the way into its snapshot.
 
 ## rytm setup
 
@@ -72,7 +80,7 @@ with [nb](https://github.com/sixolet/nb) installed, each line gets an *nb voice*
 (7,6) step / loom   (8,6) plant the seed
 (9,6)-(11,6) cycle < ~ >, hold to write     (14,6) clear all, (15,6) clear selected: hold
 (16,6) take snapshot   (9,7)-(16,8) snapshots
-(1,8) play/stop   (2,8)-(4,8) time - / 1/16 / +
+(1,8) play/stop   (2,8)-(4,8) time - / 1/16 / +   (7,8) (8,8) morph 1, 2
 ```
 
 ## screen
@@ -81,4 +89,4 @@ enc 1 picks a line of the screen. on *seed/rule*, *time*, *feel* (swing, accents
 
 ## to come
 
-shadow hits (flam, ghost, echo, hocket), ratchets, a form of sections with fills, morphs, lfos, a 64 grid.
+shadow hits (flam, ghost, echo, hocket), ratchets, a form of sections with fills, lfos, a 64 grid.
